@@ -1,0 +1,249 @@
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String     @id @default(cuid())
+  name          String
+  email         String     @unique
+  password      String
+  role          String     // Changed from UserRole enum to String for SQLite compatibility
+  avatar        String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  cattleRecords Cattle[]
+  healthRecords HealthRecord[]
+  salesRecords  Sale[]
+  feedUsage     FeedUsage[] @relation(name: "feed_usage_to_user")
+
+  @@map("users")
+}
+
+model Supplier {
+  id            String        @id @default(cuid())
+  name          String
+  contact       String
+  address       String?
+  phone         String?
+  email         String?
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  cattlePurchases Purchase[]
+  rawMaterialPurchases RawMaterialPurchase[]
+  rawMaterials RawMaterial[] @relation(name: "raw_material_to_supplier")
+
+  @@map("suppliers")
+}
+
+model Purchase {
+  id              String     @id @default(cuid())
+  cattleId        String     @unique
+  supplierId      String
+  purchaseDate    DateTime   @default(now())
+  initialWeight   Decimal
+  purchasePrice   Decimal
+  currency        String     @default("IDR")
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  cattle    Cattle     @relation(fields: [cattleId], references: [id])
+  supplier  Supplier   @relation(fields: [supplierId], references: [id])
+
+  @@map("purchases")
+}
+
+model Cattle {
+  id              String         @id @default(cuid())
+  cattleId        String         @unique // Unique identifier for the cattle
+  breed           String
+  gender          String         // Changed from Gender enum to String for SQLite compatibility
+  birthDate       DateTime?
+  initialWeight   Decimal
+  currentWeight   Decimal?
+  status          String         // Changed from CattleStatus enum to String for SQLite compatibility
+  location        String?        // pen/kandang ID
+  notes           String?
+  photoUrl        String?
+  documentUrl     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  // Relations
+  user            User?       @relation(fields: [userId], references: [id])
+  userId          String?
+  purchase        Purchase?
+  inductions      Induction[]
+  weightRecords   WeightRecord[]
+  healthRecords   HealthRecord[]
+  sales           Sale[]
+
+  @@map("cattle")
+}
+
+model Induction {
+  id              String     @id @default(cuid())
+  cattleId        String
+  inductionDate   DateTime   @default(now())
+  quarantineDays  Int?
+  treatment       String?
+  status          String?    // 'quarantine', 'healthy', 'treatment', etc.
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  cattle Cattle @relation(fields: [cattleId], references: [id])
+
+  @@map("inductions")
+}
+
+model WeightRecord {
+  id           String   @id @default(cuid())
+  cattleId     String
+  weight       Decimal
+  recordDate   DateTime @default(now())
+  adg          Decimal? // Average Daily Gain
+  notes        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  cattle Cattle @relation(fields: [cattleId], references: [id])
+
+  @@map("weight_records")
+}
+
+model HealthRecord {
+  id            String     @id @default(cuid())
+  cattleId      String
+  userId        String
+  symptoms      String     // Changed from String[] to String for SQLite compatibility
+  diagnosis     String?
+  treatment     String?
+  medication    String?
+  startDate     DateTime   @default(now())
+  endDate       DateTime?
+  status        String?    // 'active', 'recovered', 'chronic', etc.
+  notes         String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  // Relations
+  cattle Cattle @relation(fields: [cattleId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("health_records")
+}
+
+model RawMaterial {
+  id              String     @id @default(cuid())
+  name            String
+  category        String     // 'grain', 'hay', 'supplement', etc.
+  unit            String     // 'kg', 'ton', 'bag', etc.
+  currentStock    Decimal    @default(0)
+  minStock        Decimal    @default(0)
+  pricePerUnit    Decimal
+  currency        String     @default("IDR")
+  supplierId      String?
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  supplier         Supplier?           @relation(fields: [supplierId], references: [id], name: "raw_material_to_supplier")
+  rawMaterialPurchases RawMaterialPurchase[]
+  feedUsage        FeedUsage[]
+
+  @@map("raw_materials")
+}
+
+model RawMaterialPurchase {
+  id              String     @id @default(cuid())
+  rawMaterialId   String
+  supplierId      String
+  purchaseDate    DateTime   @default(now())
+  quantity        Decimal
+  unitPrice       Decimal
+  totalCost       Decimal
+  currency        String     @default("IDR")
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  rawMaterial RawMaterial @relation(fields: [rawMaterialId], references: [id])
+  supplier    Supplier    @relation(fields: [supplierId], references: [id])
+
+  @@map("raw_material_purchases")
+}
+
+model Ration {
+  id              String     @id @default(cuid())
+  name            String     // e.g., "Growing Phase Ration", "Finishing Phase Ration"
+  description     String?
+  ingredients     String     // Changed from Json to String for SQLite compatibility - store as JSON string
+  nutritionalValue String?   // Changed from Json to String for SQLite compatibility - store as JSON string
+  targetGroup     String?    // e.g., "growing", "finishing", "breeding"
+  isActive        Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  feedUsage       FeedUsage[]
+
+  @@map("rations")
+}
+
+model FeedUsage {
+  id              String     @id @default(cuid())
+  rawMaterialId   String
+  rationId        String?
+  cattleGroupId   String?    // ID of the group of cattle that received this feed
+  userId          String
+  usageDate       DateTime   @default(now())
+  quantity        Decimal
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  rawMaterial RawMaterial @relation(fields: [rawMaterialId], references: [id])
+  ration      Ration?     @relation(fields: [rationId], references: [id])
+  user        User        @relation(fields: [userId], references: [id], name: "feed_usage_to_user")
+
+  @@map("feed_usage")
+}
+
+model Sale {
+  id              String     @id @default(cuid())
+  cattleId        String
+  userId          String
+  saleDate        DateTime   @default(now())
+  finalWeight     Decimal
+  salePrice       Decimal
+  buyerName       String
+  buyerContact    String?
+  currency        String     @default("IDR")
+  notes           String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relations
+  cattle Cattle @relation(fields: [cattleId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@map("sales")
+}
