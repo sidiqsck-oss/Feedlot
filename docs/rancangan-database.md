@@ -20,6 +20,12 @@ Sistem baru: Laravel + MySQL, di shared hosting cPanel tanpa akses SSH.
 | Dosis dokter (ml) | Rekam medis + biaya per ekor, **tidak** motong stok | Menghindari potong stok dua kali |
 | Batch & kadaluarsa | Belum sekarang | Tapi kolomnya disiapkan — FIFO sudah melacak per lot |
 | PO | Bisa diterima bertahap | Kadang barang datang nggak sekaligus |
+| PO tidak terpenuhi | Bisa **ditutup** (kurang) atau **dibatalkan** (belum ada yang datang) | Barang sering kosong di supplier |
+| Revisi PO | Bisa tambah/kurang item, dengan jejak | PO sering berubah setelah dibuat |
+| Nomor dokumen | `SCK-OVK-M-V-26-001` | M/K/O/P = masuk/keluar/opname/PO. Urut reset tiap **tahun** |
+| Opname | Sebulan sekali, dikunci per periode | Satu bulan tidak boleh dobel |
+| Penerima barang | Tabel master (Gunawan, Junaidi), bisa ditambah/dihapus | Bukan pilihan yang di-*hardcode* |
+| Induksi & reweight | Menunjuk **shipment**, tidak sampai pen | Cukup untuk kebutuhan laporan |
 
 ---
 
@@ -321,13 +327,62 @@ Sengaja ditahan dulu, bukan kelupaan:
 
 ---
 
-## 13. Yang perlu kamu koreksi
+## 13. Siklus hidup PO
 
-1. **Angka di bagian 11** — alurnya sudah sesuai kenyataan di lapangan?
-2. **`tujuan` pengeluaran** — cukup `dokter`/`induksi`/`reweight`/`lainnya`,
-   atau ada tujuan lain yang sering kepakai?
-3. **Nomor nota** — mau format apa? (`NM-2602-001`) Atau ikut nomor faktur supplier?
-4. **Opname** — sebulan sekali, atau bisa kapan saja?
-5. **Siapa saja yang bakal pakai sistem ini**, dan boleh ngapain aja?
-6. **Barang keluar buat induksi/reweight** — perlu nunjuk shipment/pen tertentu,
-   atau cukup dicatat keluar aja?
+Barang tidak selalu datang penuh. Bisa kosong di supplier, bisa kurang dari
+yang diminta, dan PO-nya sendiri kadang perlu diubah setelah dibuat.
+
+```
+draft → terbuka → sebagian → selesai     (terpenuhi penuh, otomatis)
+                     ↓
+                  ditutup                (disudahi meski kurang, wajib alasan)
+
+terbuka → batal                          (hanya kalau BELUM ada barang masuk)
+```
+
+Dua aturan yang dijaga kode, bukan cuma disepakati:
+
+- **Batal hanya boleh selama belum ada barang masuk.** Kalau sudah ada,
+  jalurnya "tutup" — membatalkan PO yang barangnya sudah sebagian diterima
+  membuat penerimaan itu yatim.
+- **Qty PO tidak bisa diturunkan di bawah yang sudah diterima.** Barangnya
+  sudah jadi stok; PO yang menyatakan lebih sedikit dari yang sudah datang itu
+  bohong.
+
+Setiap revisi, penutupan, dan pembatalan dicatat di `purchase_order_riwayat`
+lengkap dengan alasan, pelaku, dan isi perubahannya. Saat PO ditutup, kekurangan
+tiap barang ikut disimpan supaya laporan bisa menunjukkan berapa yang tidak
+terpenuhi.
+
+---
+
+## 14. Status pengerjaan
+
+Semua yang di dokumen ini sudah jadi kode dan lolos test.
+
+| Bagian | Berkas |
+|---|---|
+| Skema | `database/migrations/2026_08_07_*` |
+| Model | `app/Models/` |
+| FIFO & kartu stok | `app/Services/StokService.php` |
+| Siklus PO | `app/Services/PurchaseOrderService.php` |
+| Nomor dokumen | `app/Services/NomorDokumenService.php` |
+| Data awal | `database/seeders/DatabaseSeeder.php` |
+| Test alur bagian 11 | `tests/Feature/AlurStokFifoTest.php` |
+| Test siklus PO | `tests/Feature/SiklusPurchaseOrderTest.php` |
+| Cara pasang di hosting | `docs/deploy-cpanel.md` |
+
+Angka di bagian 11 dijalankan apa adanya oleh `AlurStokFifoTest` — beli 10@85rb,
+beli 10@92rb, keluar 12 (FIFO dua lot), opname selisih −1, saldo akhir 7 botol /
+Rp 644.000. Kalau test itu gagal, artinya perilaku sistem menyimpang dari yang
+disepakati di sini.
+
+## 15. Berikutnya
+
+Belum dikerjakan, urut dari yang paling menghambat:
+
+1. **Antarmuka** — halaman input penerimaan, pengeluaran, opname, dan master
+2. **Laporan** — masuk, keluar, stok, hasil opname, plus cetak PDF
+3. **Impor rekam medis** — tarik dari Google Sheets dokter ke `treatment`
+4. **Biaya obat per ekor** — menyambungkan `treatment_items` ke nilai FIFO
+5. **Modul pakan & CPL** — modul terpisah, sumbernya Dropbox
