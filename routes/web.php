@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BarangController;
+use App\Http\Controllers\Cpl\DashboardCplController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\ImporController;
@@ -57,6 +58,13 @@ Route::middleware('auth')->group(function () {
     Route::resource('opname', OpnameController::class)->except('edit', 'destroy');
     Route::post('opname/{opname}/finalkan', [OpnameController::class, 'finalkan'])->name('opname.finalkan');
     Route::get('opname/{opname}/cetak', [OpnameController::class, 'cetak'])->name('opname.cetak');
+
+    // ── CPL ───────────────────────────────────────────────────────
+    // Modul terpisah dari OVK: dashboard untuk pimpinan, laporan rinci,
+    // dan data sapi. Semuanya membaca lewat KueriCpl yang sama.
+    Route::prefix('cpl')->name('cpl.')->group(function () {
+        Route::get('/', DashboardCplController::class)->name('dashboard');
+    });
 
     // ── Impor berkas ──────────────────────────────────────────────
     // Alurnya dua tahap: unggah menghasilkan pratinjau, dan tidak ada data
