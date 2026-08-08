@@ -23,18 +23,18 @@
         </div>
 
         <nav class="space-y-5 px-3 py-4 text-sm">
-            <x-nav-grup judul="Ringkasan">
-                <x-nav-tautan :href="route('dashboard')" :aktif="request()->routeIs('dashboard')">Dashboard</x-nav-tautan>
+            <x-nav-grup judul="OVK">
+                <x-nav-tautan :href="route('dashboard')" :aktif="request()->routeIs('dashboard')">Dashboard OVK</x-nav-tautan>
             </x-nav-grup>
 
-            <x-nav-grup judul="Transaksi">
+            <x-nav-grup judul="Transaksi OVK">
                 <x-nav-tautan :href="route('penerimaan.index')" :aktif="request()->routeIs('penerimaan.*')">Barang Masuk</x-nav-tautan>
                 <x-nav-tautan :href="route('pengeluaran.index')" :aktif="request()->routeIs('pengeluaran.*')">Barang Keluar</x-nav-tautan>
                 <x-nav-tautan :href="route('purchase-order.index')" :aktif="request()->routeIs('purchase-order.*')">Purchase Order</x-nav-tautan>
                 <x-nav-tautan :href="route('opname.index')" :aktif="request()->routeIs('opname.*')">Stok Opname</x-nav-tautan>
             </x-nav-grup>
 
-            <x-nav-grup judul="Laporan">
+            <x-nav-grup judul="Laporan OVK">
                 <x-nav-tautan :href="route('laporan.stok')" :aktif="request()->routeIs('laporan.stok')">Stok &amp; Nilai</x-nav-tautan>
                 <x-nav-tautan :href="route('laporan.mutasi')" :aktif="request()->routeIs('laporan.mutasi')">Masuk &amp; Keluar</x-nav-tautan>
                 <x-nav-tautan :href="route('laporan.kartu')" :aktif="request()->routeIs('laporan.kartu')">Kartu Stok</x-nav-tautan>
@@ -45,7 +45,7 @@
                 <x-nav-tautan :href="route('impor.index')" :aktif="request()->routeIs('impor.*')">Impor Data</x-nav-tautan>
             </x-nav-grup>
 
-            <x-nav-grup judul="Master">
+            <x-nav-grup judul="Master OVK">
                 <x-nav-tautan :href="route('barang.index')" :aktif="request()->routeIs('barang.*')">Barang</x-nav-tautan>
                 <x-nav-tautan :href="route('supplier.index')" :aktif="request()->routeIs('supplier.*')">Supplier</x-nav-tautan>
                 <x-nav-tautan :href="route('petugas.index')" :aktif="request()->routeIs('petugas.*')">Petugas</x-nav-tautan>

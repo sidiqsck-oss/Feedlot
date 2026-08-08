@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('judul', 'Dashboard')
+@section('judul', 'Dashboard OVK')
 
 @php use App\Support\Format; @endphp
 

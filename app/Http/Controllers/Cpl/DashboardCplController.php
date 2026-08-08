@@ -44,6 +44,15 @@ class DashboardCplController extends Controller
 
             'ringkasan' => $agregat->semua(),
             'pembanding' => $this->bandingkan($agregat, $baris),
+
+            // Tabel rinci di bawah, dipecah per customer seperti di laporan.
+            // Dibatasi supaya halaman tidak menjadi ribuan baris sekaligus —
+            // untuk yang lengkap ada halaman Laporan CPL.
+            'rincian' => $baris
+                ->groupBy(fn ($b) => $b->customer ?: '(tanpa customer)')
+                ->map(fn ($grup) => $grup->sortBy('ear_tag')->values())
+                ->sortKeys(),
+            'semuaBaris' => $baris->sortBy([['shipment', 'asc'], ['ear_tag', 'asc']])->values(),
             'corong' => $this->corong($saring),
             'claim' => $this->ringkasanClaim($saring),
             'aktif' => $this->populasiAktif(),
@@ -178,11 +187,21 @@ class DashboardCplController extends Controller
 
             // Hari berjalan dihitung dari penimbangan terakhir yang ada:
             // reweight kalau sudah, kalau belum ya sejak induksi.
+            //
+            // Tanggal yang lebih baru dari hari ini dilewati, bukan
+            // dibiarkan menghasilkan hari negatif. Itu tanda tanggalnya salah
+            // input, dan "−74 hari" di layar cuma bikin bingung.
             $hari = $grup->map(function ($b) {
                 $acuan = $b->tanggal_reweight ?: $b->tanggal_induksi;
 
-                return $acuan ? Carbon::parse($acuan)->diffInDays(now()) : null;
-            })->filter();
+                if (! $acuan) {
+                    return null;
+                }
+
+                $mulai = Carbon::parse($acuan)->startOfDay();
+
+                return $mulai->isFuture() ? null : $mulai->diffInDays(now()->startOfDay());
+            })->filter(fn ($h) => $h !== null);
 
             return [
                 'ekor' => $grup->count(),

@@ -265,6 +265,33 @@
     </div>
 </div>
 
+{{-- ── Tabel rinci, satu per customer seperti di laporan ── --}}
+<div class="mt-5 space-y-4">
+    <div>
+        <h2 class="text-sm font-bold text-ink">Rincian per Customer</h2>
+        <p class="mt-0.5 text-xs text-ink-mute">
+            Kolom opsional disembunyikan seperti bawaan laporan. Untuk mengaturnya
+            dan mencetak, buka halaman Laporan CPL.
+        </p>
+    </div>
+
+    @foreach ($rincian as $namaCustomer => $barisCustomer)
+        <x-cpl-tabel
+            :baris="$barisCustomer"
+            :subjudul="'Cattle Performance Log · ' . $namaCustomer . ' · ' . $barisCustomer->count() . ' ekor'"
+            :sembunyikan="\App\Support\KolomCpl::bawaanDisembunyikan()"
+        />
+    @endforeach
+
+    @if ($rincian->count() > 1)
+        <x-cpl-tabel
+            :baris="$semuaBaris"
+            :subjudul="'Cattle Performance Log · GABUNGAN SEMUA CUSTOMER · ' . $semuaBaris->count() . ' ekor'"
+            :sembunyikan="\App\Support\KolomCpl::bawaanDisembunyikan()"
+        />
+    @endif
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
     const Chart = window.Chart;
