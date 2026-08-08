@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\BarangController;
 use App\Http\Controllers\Cpl\DashboardCplController;
+use App\Http\Controllers\Cpl\LaporanCplController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\ImporController;
@@ -64,6 +65,12 @@ Route::middleware('auth')->group(function () {
     // dan data sapi. Semuanya membaca lewat KueriCpl yang sama.
     Route::prefix('cpl')->name('cpl.')->group(function () {
         Route::get('/', DashboardCplController::class)->name('dashboard');
+
+        // Dua jalur laporan seperti di Streamlit: rinci per ekor, dan
+        // closing yang membuang baris detailnya.
+        Route::get('/laporan', [LaporanCplController::class, 'detail'])->name('laporan');
+        Route::get('/laporan/unduh', [LaporanCplController::class, 'unduh'])->name('laporan.unduh');
+        Route::get('/closing', [LaporanCplController::class, 'closing'])->name('closing');
     });
 
     // ── Impor berkas ──────────────────────────────────────────────
