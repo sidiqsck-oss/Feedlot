@@ -33,12 +33,39 @@ alokasinya disimpan sehingga tiap angka bisa ditelusuri sampai ke nota asalnya.
 app/Services/StokService.php            FIFO, kartu stok, opname
 app/Services/PurchaseOrderService.php   revisi, tutup, batal PO
 app/Services/NomorDokumenService.php    SCK-OVK-M-V-26-001
-app/Models/                             22 model
-database/migrations/                    skema OVK
-tests/Feature/                          alur FIFO & siklus PO
+app/Services/Ekspor/                    CSV streaming, Excel, PDF
+app/Services/Impor/                     baca berkas, templat, pratinjau
+app/Models/                             26 model
+database/migrations/                    skema OVK + induksi/reweight
+tests/Feature/                          57 test
 docs/rancangan-database.md              rancangan + alur contoh
 docs/deploy-cpanel.md                   cara pasang di hosting tanpa SSH
 ```
+
+## Ekspor dan impor
+
+**Ekspor** dibedakan menurut kemampuan masing-masing format, bukan disamakan:
+
+| Format | Dipakai untuk | Alasan |
+|---|---|---|
+| CSV | semua ekspor data | streaming, pemakaian memori tidak tumbuh seiring jumlah baris |
+| Excel | laporan berformat, maksimal 5.000 baris | PhpSpreadsheet menyusun seluruh berkas di memori |
+| PDF | dokumen yang dicetak dan diarsipkan | bukan untuk mengeluarkan data mentah |
+
+Batas Excel ditegakkan dengan pesan yang menyarankan CSV, bukan dibiarkan mati
+kehabisan memori — yang di shared hosting muncul sebagai halaman putih tanpa
+keterangan.
+
+**Impor** induksi dan reweight berjalan dua tahap: unggah menghasilkan
+pratinjau, dan tidak ada satu baris pun yang masuk sampai dikonfirmasi. Berkas
+yang sama tidak bisa diunggah dua kali, kesalahan dilaporkan per baris lengkap
+dengan nomor barisnya di Excel, dan batch di atas 100 baris diproses lewat
+antrean supaya tidak menabrak batas waktu eksekusi PHP.
+
+Identitas sapi memakai dua kunci sekaligus: `shipment + RFID` sebagai identitas
+utama, dan `shipment + ear tag` sebagai jembatan ke rekam medis dokter — sheet
+dokter tidak mencatat RFID sama sekali. Ear tag sendiri tidak unik; di data lama
+ada 40 nomor yang dipakai ulang di shipment berbeda.
 
 ## Menjalankan di lokal
 

@@ -3,6 +3,10 @@
 
 @php use App\Support\Format; @endphp
 
+@section('aksi')
+    <a href="{{ route('opname.cetak', $opname) }}" target="_blank" class="tombol tombol-biasa">Cetak PDF</a>
+@endsection
+
 @section('isi')
 
 <div class="kartu p-4">

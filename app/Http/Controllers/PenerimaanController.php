@@ -6,6 +6,7 @@ use App\Models\Barang;
 use App\Models\Penerimaan;
 use App\Models\PurchaseOrder;
 use App\Models\Supplier;
+use App\Services\Ekspor\EksporPdf;
 use App\Services\NomorDokumenService;
 use App\Services\PurchaseOrderService;
 use App\Services\StokService;
@@ -22,6 +23,7 @@ class PenerimaanController extends Controller
         private readonly StokService $stok,
         private readonly NomorDokumenService $nomor,
         private readonly PurchaseOrderService $po,
+        private readonly EksporPdf $pdf,
     ) {}
 
     public function index(Request $request): View
@@ -123,5 +125,15 @@ class PenerimaanController extends Controller
                 'items.barang', 'items.lot',
             ]),
         ]);
+    }
+
+    /** Dibuka di tab baru supaya bisa langsung dicetak, bukan diunduh dulu. */
+    public function cetak(Penerimaan $penerimaan)
+    {
+        return $this->pdf->tampilkan(
+            $penerimaan->nomor,
+            'cetak.penerimaan',
+            ['penerimaan' => $penerimaan->load(['supplier', 'purchaseOrder', 'pembuat', 'items.barang'])],
+        );
     }
 }

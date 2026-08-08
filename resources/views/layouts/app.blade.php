@@ -40,6 +40,10 @@
                 <x-nav-tautan :href="route('laporan.kartu')" :aktif="request()->routeIs('laporan.kartu')">Kartu Stok</x-nav-tautan>
             </x-nav-grup>
 
+            <x-nav-grup judul="Data Sapi">
+                <x-nav-tautan :href="route('impor.index')" :aktif="request()->routeIs('impor.*')">Impor Data</x-nav-tautan>
+            </x-nav-grup>
+
             <x-nav-grup judul="Master">
                 <x-nav-tautan :href="route('barang.index')" :aktif="request()->routeIs('barang.*')">Barang</x-nav-tautan>
                 <x-nav-tautan :href="route('supplier.index')" :aktif="request()->routeIs('supplier.*')">Supplier</x-nav-tautan>

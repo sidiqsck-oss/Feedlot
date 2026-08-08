@@ -3,6 +3,10 @@
 
 @php use App\Support\Format; @endphp
 
+@section('aksi')
+    <x-tombol-unduh rute="laporan.stok.unduh" />
+@endsection
+
 @section('isi')
 
 <form method="GET" class="kartu mb-4 flex flex-wrap items-end gap-3 p-3">

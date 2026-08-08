@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Barang;
 use App\Models\Opname;
 use App\Models\OpnameItem;
+use App\Services\Ekspor\EksporPdf;
 use App\Services\NomorDokumenService;
 use App\Services\StokService;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,7 @@ class OpnameController extends Controller
     public function __construct(
         private readonly StokService $stok,
         private readonly NomorDokumenService $nomor,
+        private readonly EksporPdf $pdf,
     ) {}
 
     public function index(): View
@@ -145,5 +147,14 @@ class OpnameController extends Controller
         return redirect()
             ->route('opname.show', $opname)
             ->with('sukses', 'Opname difinalkan. Selisihnya sudah tercatat di kartu stok.');
+    }
+
+    public function cetak(Opname $opname)
+    {
+        return $this->pdf->tampilkan(
+            $opname->nomor,
+            'cetak.opname',
+            ['opname' => $opname->load(['items.barang', 'pembuat'])],
+        );
     }
 }

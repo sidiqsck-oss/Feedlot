@@ -7,6 +7,7 @@ use App\Models\Pengeluaran;
 use App\Models\PergerakanStok;
 use App\Models\Petugas;
 use App\Models\Shipment;
+use App\Services\Ekspor\EksporPdf;
 use App\Services\NomorDokumenService;
 use App\Services\StokService;
 use Illuminate\Http\RedirectResponse;
@@ -22,6 +23,7 @@ class PengeluaranController extends Controller
     public function __construct(
         private readonly StokService $stok,
         private readonly NomorDokumenService $nomor,
+        private readonly EksporPdf $pdf,
     ) {}
 
     public function index(Request $request): View
@@ -121,5 +123,16 @@ class PengeluaranController extends Controller
                 'items.barang', 'items.alokasi.lot',
             ]),
         ]);
+    }
+
+    public function cetak(Pengeluaran $pengeluaran)
+    {
+        return $this->pdf->tampilkan(
+            $pengeluaran->nomor,
+            'cetak.pengeluaran',
+            ['pengeluaran' => $pengeluaran->load([
+                'petugas', 'shipment', 'pembuat', 'items.barang', 'items.alokasi.lot',
+            ])],
+        );
     }
 }

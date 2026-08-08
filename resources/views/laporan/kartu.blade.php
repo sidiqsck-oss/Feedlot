@@ -3,6 +3,12 @@
 
 @php use App\Support\Format; @endphp
 
+@section('aksi')
+    @if ($barang)
+        <x-tombol-unduh rute="laporan.kartu.unduh" :pdf="true" />
+    @endif
+@endsection
+
 @section('isi')
 
 <form method="GET" class="kartu mb-4 flex flex-wrap items-end gap-3 p-3">

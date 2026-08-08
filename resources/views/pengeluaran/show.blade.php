@@ -4,7 +4,10 @@
 @php use App\Support\Format; @endphp
 
 @section('aksi')
-    <a href="{{ route('pengeluaran.create') }}" class="tombol tombol-utama">Nota Baru</a>
+    <div class="flex gap-2">
+        <a href="{{ route('pengeluaran.cetak', $pengeluaran) }}" target="_blank" class="tombol tombol-biasa">Cetak PDF</a>
+        <a href="{{ route('pengeluaran.create') }}" class="tombol tombol-utama">Nota Baru</a>
+    </div>
 @endsection
 
 @section('isi')
