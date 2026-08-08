@@ -40,6 +40,8 @@ database/migrations/                    skema OVK + induksi/reweight
 tests/Feature/                          57 test
 docs/rancangan-database.md              rancangan + alur contoh
 docs/deploy-cpanel.md                   cara pasang di hosting tanpa SSH
+docs/deploy-render.md                   cara pasang di Render untuk uji coba
+Dockerfile, render.yaml, docker/        berkas rilis Render
 ```
 
 ## Ekspor dan impor
@@ -90,3 +92,16 @@ lewat FTP. Migrasi dijalankan melalui route terproteksi karena `php artisan`
 tidak bisa dipanggil di server.
 
 Langkah lengkapnya ada di [`docs/deploy-cpanel.md`](docs/deploy-cpanel.md).
+
+Ada jalur kedua untuk **uji coba**: [`docs/deploy-render.md`](docs/deploy-render.md).
+Render punya shell, jadi tiga tambalan di atas — FTP, route migrasi, cron — tidak
+dipakai sama sekali di sana. Kode aplikasinya sama persis; keduanya bisa hidup
+berdampingan dari repo ini.
+
+`config.platform.php` di `composer.json` dipatok ke **8.2.0**: versi PHP
+**terendah** yang dituju saat rilis, bukan versi di laptop. Tanpa patokan itu
+`composer.lock` ikut versi PHP mesin yang kebetulan menjalankan `composer
+update` — dan lock yang mensyaratkan PHP lebih baru daripada servernya baru
+ketahuan gagal saat rilis. Kalau versi PHP di hosting dinaikkan, ubah angka ini
+bersama `php-version` di `.github/workflows/deploy.yml` dan `FROM php:` di
+`Dockerfile`.

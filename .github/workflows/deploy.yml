@@ -37,8 +37,13 @@ jobs:
         uses: actions/checkout@v4
 
       # Versi PHP di sini harus SAMA dengan yang dipilih di cPanel.
-      # Kalau berbeda, vendor/ yang dibangun di sini bisa tidak cocok
-      # dengan PHP di server.
+      #
+      # Yang menentukan paket mana yang terpasang sebenarnya bukan baris ini,
+      # melainkan config.platform.php di composer.json — itu yang bikin
+      # composer.lock selalu diselesaikan untuk PHP 8.2, tidak peduli versi
+      # PHP di mesin yang menjalankannya. Tanpa itu, lock hasil laptop
+      # ber-PHP 8.4 bisa mensyaratkan PHP 8.4 dan langkah composer install di
+      # bawah gagal. Kalau versi cPanel dinaikkan, ubah keduanya bersamaan.
       - name: Siapkan PHP
         uses: shivammathur/setup-php@v2
         with:

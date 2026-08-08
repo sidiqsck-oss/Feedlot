@@ -1,0 +1,36 @@
+# Yang tidak boleh ikut masuk ke citra.
+#
+# vendor/ dan node_modules/ sengaja dikecualikan: keduanya dibangun ulang di
+# dalam citra. Kalau ikut disalin, hasil bangunan di laptop bisa menimpa hasil
+# bangunan di dalam kontainer — dan bedanya baru ketahuan saat rilis.
+
+.git
+.github
+.env
+.env.*
+!.env.example
+
+vendor
+node_modules
+public/build
+public/hot
+public/storage
+
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/logs/*
+!storage/**/.gitignore
+
+bootstrap/cache/*.php
+
+tests
+phpunit.xml
+.phpunit.result.cache
+
+database/*.sqlite
+database/*.sqlite-journal
+
+docs
+icons
+README.md
