@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BarangController;
+use App\Http\Controllers\BiayaObatController;
 use App\Http\Controllers\Cpl\ClaimController;
 use App\Http\Controllers\Cpl\DashboardCplController;
 use App\Http\Controllers\Cpl\LaporanCplController;
@@ -109,6 +110,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/laporan/kartu', [LaporanController::class, 'kartu'])->name('laporan.kartu');
     Route::get('/laporan/kartu/unduh', [LaporanController::class, 'kartuUnduh'])->name('laporan.kartu.unduh');
+
+    // Jembatan OVK ke CPL: dosis dokter dinilai dengan harga FIFO barang
+    // yang benar-benar keluar dari gudang.
+    Route::get('/laporan/biaya-obat', [BiayaObatController::class, 'index'])->name('laporan.biaya-obat');
+    Route::get('/laporan/biaya-obat/unduh', [BiayaObatController::class, 'unduh'])->name('laporan.biaya-obat.unduh');
 });
 
 /*

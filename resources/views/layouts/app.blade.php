@@ -38,6 +38,7 @@
                 <x-nav-tautan :href="route('laporan.stok')" :aktif="request()->routeIs('laporan.stok')">Stok &amp; Nilai</x-nav-tautan>
                 <x-nav-tautan :href="route('laporan.mutasi')" :aktif="request()->routeIs('laporan.mutasi')">Masuk &amp; Keluar</x-nav-tautan>
                 <x-nav-tautan :href="route('laporan.kartu')" :aktif="request()->routeIs('laporan.kartu')">Kartu Stok</x-nav-tautan>
+                <x-nav-tautan :href="route('laporan.biaya-obat')" :aktif="request()->routeIs('laporan.biaya-obat')">Biaya Obat/Ekor</x-nav-tautan>
             </x-nav-grup>
 
             <x-nav-grup judul="CPL">

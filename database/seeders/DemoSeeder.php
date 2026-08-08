@@ -3,11 +3,14 @@
 namespace Database\Seeders;
 
 use App\Models\Barang;
+use App\Models\Induksi;
 use App\Models\Penerimaan;
 use App\Models\Pengeluaran;
 use App\Models\Petugas;
 use App\Models\Shipment;
 use App\Models\Supplier;
+use App\Models\Treatment;
+use App\Models\TreatmentItem;
 use App\Models\User;
 use App\Services\NomorDokumenService;
 use App\Services\StokService;
@@ -88,11 +91,73 @@ class DemoSeeder extends Seeder
             ], $baris), $user);
         }
 
+        /*
+         * Rekam medis dokter.
+         *
+         * Sengaja memakai ear tag yang benar-benar ada di data induksi, dan
+         * satu baris obat yang namanya belum dipetakan — supaya halaman biaya
+         * obat sekaligus memperlihatkan bagaimana baris yang belum bernilai
+         * ditampilkan, bukan cuma kasus yang mulus.
+         */
+        $this->rekamMedis($user, $b);
+
         $this->command?->info(sprintf(
             'Demo siap: %d nota masuk, %d nota keluar. Limoxin sisa %s botol.',
             Penerimaan::count(),
             Pengeluaran::count(),
             $b('OVK-001')->stok(),
         ));
+    }
+
+    /** Rekam medis dokter untuk beberapa ekor di shipment terakhir. */
+    private function rekamMedis($user, callable $b): void
+    {
+        $shipment = Shipment::orderByDesc('nomor')->first();
+
+        if (! $shipment) {
+            return;
+        }
+
+        // Ear tag diambil dari data induksi yang ada, supaya biayanya bisa
+        // ditelusuri balik ke ekor yang benar-benar tercatat.
+        $earTags = Induksi::where('shipment_id', $shipment->id)->limit(6)->pluck('ear_tag');
+
+        if ($earTags->isEmpty()) {
+            return;
+        }
+
+        $resep = [
+            [['OVK-001', 'Limoxin 200', 20], ['OVK-003', 'vit b complex', 10]],
+            [['OVK-001', 'Limoxin 200', 15]],
+            [['OVK-003', 'Vit B Kompleks', 12], [null, 'oxytetra spray', 1]],
+        ];
+
+        $diagnosa = ['Pincang', 'Demam', 'Luka pen', 'Mata berair'];
+
+        foreach ($earTags as $i => $earTag) {
+            $tanggal = Carbon::parse('2026-08-01')->addDays($i * 2);
+
+            $rawat = Treatment::create([
+                'shipment_id' => $shipment->id,
+                'ear_tag' => $earTag,
+                'tanggal' => $tanggal->toDateString(),
+                'penanggung_jawab_teks' => 'drh. Anwar',
+                'pen_asal' => 'Pen '.(($i % 4) + 1),
+                'diagnosa' => $diagnosa[$i % count($diagnosa)],
+                'berat_badan' => 280 + $i * 7,
+                'kondisi' => 'Membaik',
+                'hash_baris' => Treatment::hash([$shipment->kode, $earTag, $tanggal->toDateString()]),
+            ]);
+
+            foreach ($resep[$i % count($resep)] as [$kode, $namaAsli, $dosis]) {
+                TreatmentItem::create([
+                    'treatment_id' => $rawat->id,
+                    'barang_id' => $kode ? $b($kode)->id : null,
+                    'nama_obat_asli' => $namaAsli,
+                    'dosis' => $dosis,
+                    'satuan_dosis' => 'ml',
+                ]);
+            }
+        }
     }
 }
