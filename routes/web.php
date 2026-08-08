@@ -4,6 +4,7 @@ use App\Http\Controllers\BarangController;
 use App\Http\Controllers\Cpl\ClaimController;
 use App\Http\Controllers\Cpl\DashboardCplController;
 use App\Http\Controllers\Cpl\LaporanCplController;
+use App\Http\Controllers\Cpl\PenjualanController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DeployController;
 use App\Http\Controllers\ImporController;
@@ -79,6 +80,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/claim/cari', [ClaimController::class, 'cari'])->name('claim.cari');
         Route::get('/claim/unduh', [ClaimController::class, 'unduh'])->name('claim.unduh');
         Route::resource('claim', ClaimController::class)->except('show');
+
+        // Penjualan. Jalur utamanya tetap impor sheet Transaksi dari Dropbox;
+        // halaman ini untuk koreksi satu ekor dan nota yang belum masuk berkas.
+        Route::get('/penjualan/cari', [PenjualanController::class, 'cari'])->name('penjualan.cari');
+        Route::get('/penjualan/unduh', [PenjualanController::class, 'unduh'])->name('penjualan.unduh');
+        Route::resource('penjualan', PenjualanController::class)->except('show');
     });
 
     // ── Impor berkas ──────────────────────────────────────────────
