@@ -34,9 +34,23 @@ Dua populasi berbeda dikurangkan, jadi hasilnya tidak berarti apa-apa.
 
 Selisihnya 0,5 kg/hari — sekitar **24% understated**.
 
+**Tapi dampaknya jauh lebih kecil dari kelihatannya.** Angka di atas muncul
+kalau seluruh data ditarik sekaligus. Laporan sehari-hari ditarik per invoice,
+dan di sana kesalahannya nyaris tidak terjadi:
+
+| | |
+|---|---|
+| Invoice yang semua sapinya punya reweight | **77 dari 96** |
+| Selisih lama vs benar, 11 invoice terbesar | **0,000 semua** |
+
+Masuk akal: dalam satu invoice, sapi biasanya diperlakukan sama — kalau
+di-reweight, semuanya di-reweight. Kesalahan ini baru muncul saat beberapa
+periode dijumlahkan jadi satu, misalnya di dashboard.
+
 **Aturannya di modul baru: pembilang dan penyebut harus dari populasi yang
 sama.** Kalau satu ekor tidak punya reweight, dia keluar dari perhitungan ADG
-RWT sepenuhnya — bukan cuma dari penyebutnya.
+RWT sepenuhnya — bukan cuma dari penyebutnya. Di tarikan per invoice hasilnya
+akan sama persis dengan yang sekarang; yang berubah hanya tarikan gabungan.
 
 ### 1.2 Dashboard juga lebih rendah, dengan sebab berbeda
 
@@ -137,7 +151,11 @@ per ekor.
 | `berat_muat` | Load Wt, rata-rata per ekor di pelabuhan asal |
 | `tanggal_tiba` | Feedlot Date |
 | `berat_tiba` | Feedlot Wt, rata-rata per ekor saat tiba |
-| `jumlah_ekor` | untuk menghitung susut angkutan |
+| `jumlah_ekor` | jumlah ekor yang benar-benar tiba — dasar corong shipment |
+
+`jumlah_ekor` diambil dari berkas pembelian, tidak perlu diinput manual.
+Angka inilah yang jadi titik awal corong: dari sekian ekor yang tiba, berapa
+yang jadi uang.
 
 ### `penjualan`
 Dari `SJ INV SCK.xlsm`. Sementara diimpor, nanti diganti form.
@@ -221,35 +239,35 @@ selalu ditampilkan.
 > menghitungnya dari **Feedlot Date** kalau kolomnya kosong. Di modul baru
 > patokannya satu: **Load Date**, sesuai skrip yang jadi sumber angkanya.
 
-### Rumus agregat — tertimbang
+### Rumus agregat
 
-Perlakuannya mengikuti baris TOTAL di laporan Excel, dengan kesalahan populasi
-di bagian 1.1 dibetulkan.
+Perlakuannya mengikuti baris TOTAL di laporan Excel **apa adanya** — termasuk
+yang memakai tertimbang dan yang memakai rata-rata sederhana. Campuran itu
+disengaja, bukan kelalaian, jadi dipertahankan.
 
-| Agregat | Rumus |
-|---|---|
-| ADG Induction | `(Σ berat_jual − Σ berat_induksi) ÷ Σ DOF Induction` |
-| ADG RWT | `(Σ berat_reweight − Σ berat_induksi) ÷ Σ DOF RWT` |
-| ADG Discharge | `(Σ berat_jual − Σ berat_muat) ÷ Σ DOF Discharge` |
-| ADG JUAL | `(Σ berat_jual − Σ berat_reweight) ÷ Σ DOF JUAL` |
-| SELISIH RWT-JUAL | `ADG JUAL tertimbang − ADG RWT tertimbang` |
-| Gain/Loss (%) | `Σ Gain/Loss ÷ Σ berat_muat × 100` |
-| Gain (%) | `Σ Gain ÷ Σ berat_induksi × 100` |
+| Agregat | Cara | Rumus |
+|---|---|---|
+| ADG Induction | **tertimbang** | `(Σ berat_jual − Σ berat_induksi) ÷ Σ DOF Induction` |
+| ADG RWT | **tertimbang** | `(Σ berat_reweight − Σ berat_induksi) ÷ Σ DOF RWT` |
+| Gain/Loss (%) | **tertimbang** | `Σ Gain/Loss ÷ Σ berat_muat × 100` |
+| Gain (%) | **tertimbang** | `Σ Gain ÷ Σ berat_induksi × 100` |
+| ADG Discharge | rata-rata sederhana | `avg(ADG Discharge per ekor)` |
+| ADG JUAL | rata-rata sederhana | `avg(ADG JUAL per ekor)` |
+| SELISIH RWT-JUAL | rata-rata sederhana | `avg(SELISIH per ekor)` |
+| Bobot, DOF, Gain (Kg) | jumlah | `Σ` |
 
 **Aturan populasi — ini yang membetulkan temuan 1.1:**
 
-Setiap agregat hanya menjumlahkan ekor yang **semua bahannya lengkap**. Untuk
-ADG RWT, sapi tanpa data reweight keluar dari ketiga penjumlahan sekaligus —
-berat reweight, berat induksi, maupun DOF. Bukan cuma dari penyebutnya.
+Setiap agregat hanya memakai ekor yang **semua bahannya lengkap**. Untuk ADG
+RWT, sapi tanpa data reweight keluar dari ketiga penjumlahan sekaligus — berat
+reweight, berat induksi, maupun DOF. Bukan cuma dari penyebutnya.
 
 Jadi kalau dalam satu shipment ada 100 ekor dan hanya 80 yang di-reweight, ADG
 RWT-nya dihitung dari 80 ekor itu saja, dan di sebelah angkanya tertulis
 `n = 80` supaya jelas dasarnya berapa ekor.
 
-> Catatan: laporan Excel sekarang tidak konsisten — baris TOTAL memakai
-> tertimbang untuk ADG Induction dan ADG RWT, tapi rata-rata sederhana untuk
-> ADG Discharge, ADG JUAL, dan SELISIH. Di sini keempatnya dibuat tertimbang.
-> Kalau ternyata ADG JUAL memang sengaja rata-rata sederhana, tolong bilang.
+Aturan yang sama berlaku untuk rata-rata sederhana: ekor yang nilainya kosong
+tidak ikut, dan tidak diperlakukan sebagai nol.
 
 ### Status setiap ekor
 
@@ -308,21 +326,33 @@ Mengubah rentang tanggal mengosongkan penyaring di bawahnya, sama seperti
 — perilaku bawaan dari Streamlit, supaya halaman tidak pernah kosong saat
 pertama dibuka.
 
-### Baris 1 — Ringkasan periode
+### Baris 1 — Ringkasan atas
 
-Tiap angka membawa pembanding periode sebelumnya (▲/▼), karena satu angka tanpa
-pembanding tidak memberi tahu apa pun.
+Inilah bagian yang dimaksud "analisa tambahan dari bos": **delapan kartu di
+bagian atas HTML, dibawa apa adanya**, plus satu kartu tambahan.
 
-| Kartu | Isi |
-|---|---|
-| Ekor terjual | jumlah + Δ |
-| ADG Induction | rata-rata + Δ + `n` ekor |
-| Bobot jual rata-rata | kg + Δ |
-| Gain per ekor | kg + Δ |
-| DOF rata-rata | hari + Δ |
-| **Susut (claim)** | % ekor + Δ |
+| # | Kartu | Angka utama | Angka kecil di bawahnya |
+|---|---|---|---|
+| 1 | Ekor Terjual | jumlah | tanggal / periode |
+| 2 | Rata-rata Exit Wt | kg | total kg |
+| 3 | Rata-rata Induct Wt | kg | gain kg/ekor |
+| 4 | ADG Induction | angka | rata-rata DOF (hari) |
+| 5 | ADG Discharge | angka | rata-rata DOF (hari) |
+| 6 | ADG RWT | angka | `n` ekor yang punya data RWT |
+| 7 | ADG JUAL | angka | selisih terhadap ADG RWT |
+| 8 | Melambat pasca RWT | `x / y` ekor | persentase |
+| 9 | **Susut (claim)** | % ekor | dipecah mati / salvage |
 
-Kartu susut sengaja ditaruh sederet dengan ADG. Keduanya harus dibaca bersama.
+Kartu 9 tambahan dari aku, dan sengaja ditaruh sederet dengan ADG bukan di blok
+terpisah: ADG 2,1 terdengar bagus, tapi artinya berbeda kalau dari 300 ekor
+yang datang ternyata 20 mati. Dua angka itu harus terbaca sekali pandang.
+
+Kartu 6 sudah menampilkan `n` di HTML aslinya — itu kebiasaan yang benar, dan
+di modul baru diterapkan ke semua kartu yang datanya bisa tidak lengkap.
+
+Tiap kartu juga membawa pembanding periode sebelumnya (▲/▼). Satu angka tanpa
+pembanding tidak memberi tahu apa pun, dan itu yang bos butuhkan untuk
+membandingkan.
 
 ### Baris 2 — Corong shipment
 
@@ -432,7 +462,7 @@ tidak ada baris detailnya.
 |---|---|
 | Tampilan & perilaku dashboard | Ikut berkas HTML yang dikirim |
 | Cara menghitung | Ikut Streamlit lama, dengan pembetulan di bagian 1 |
-| Rata-rata ADG | **Tertimbang** |
+| Rata-rata ADG | Campuran, **persis seperti laporan sekarang** — tertimbang untuk ADG Induction & ADG RWT, rata-rata sederhana untuk ADG Discharge, ADG JUAL, dan SELISIH |
 | ADG RWT | Hanya untuk yang punya reweight; yang tidak punya, kosong |
 | Sebagian reweight dalam satu shipment | Tetap dihitung dari yang punya saja, `n` ditampilkan |
 | Jenis claim | `mati` · `salvage` · `sakit_bawaan`, ditambah kolom keterangan |
@@ -440,21 +470,17 @@ tidak ada baris detailnya.
 | Populasi aktif | Perlu, dibatasi 8 shipment terakhir |
 | Penyaring | Sama dan saling terhubung |
 | Laporan | CPL Detail + Closing, dengan pilihan sembunyikan kolom |
+| Corong shipment | Dasar ekor tiba diambil dari berkas pembelian |
+| Analisa untuk pimpinan | Ringkasan atas + dua grafik dari HTML, dibawa apa adanya |
 
 ---
 
-## 8. Yang masih perlu kamu jawab
+## 8. Catatan sebelum dibangun
 
-1. **Angka ADG RWT akan berubah cukup jauh.** Di laporan Excel dari 1,624 jadi
-   2,126; di dashboard dari 1,943 jadi 2,117. Kalau angka lama sudah terlanjur
-   dipakai di laporan ke atasan, sebaiknya dijelaskan dulu sebelum berubah
-   sendiri di sistem baru.
-2. **ADG Discharge, ADG JUAL, dan SELISIH** di laporan sekarang memakai
-   rata-rata sederhana, sementara ADG Induction dan ADG RWT tertimbang. Aku
-   samakan jadi tertimbang semua — kecuali kalau tiga itu memang sengaja
-   dibuat rata-rata sederhana.
-3. **Corong shipment** butuh jumlah ekor yang benar-benar tiba per shipment.
-   Angka itu ada di berkas pembelian, atau perlu diinput manual?
-4. **Analisa tambahan yang bos minta** — kamu bilang ada. Apa saja? Empat tabel
-   pembanding di bagian 5 itu tebakanku; kalau ada yang spesifik dia minta,
-   lebih baik masuk sekarang daripada ditambal belakangan.
+**Angka ADG di tarikan gabungan akan berubah.** Di tarikan per invoice — cara
+laporan biasanya dipakai — hasilnya sama persis dengan sekarang, karena dalam
+satu invoice sapinya diperlakukan seragam. Yang berubah hanya saat beberapa
+periode dijumlahkan, misalnya di dashboard atau laporan tahunan.
+
+Kalau ada laporan gabungan yang sudah terlanjur dikirim ke atasan dengan angka
+lama, sebaiknya disebutkan dulu sebelum angkanya berubah sendiri di sistem baru.
