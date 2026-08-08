@@ -36,5 +36,15 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      # Semua folder yang ditunjuk phpunit.xml harus benar-benar ikut ter-commit.
+      # Git tidak melacak folder kosong, jadi folder yang kebetulan sudah ada di
+      # laptop bisa hilang di kloning bersih — dan `php artisan test` berhenti
+      # sebelum satu test pun jalan, tanpa pernah terlihat saat pengembangan.
+      - name: Pastikan folder testsuite ada
+        run: |
+          for d in $(grep -oP '(?<=<directory>)[^<]+' phpunit.xml); do
+            [ -d "$d" ] || { echo "Folder testsuite '$d' tidak ada di repo."; exit 1; }
+          done
+
       - name: Jalankan test
         run: php artisan test

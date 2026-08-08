@@ -1,0 +1,7 @@
+Folder ini sengaja dipertahankan walau masih kosong.
+
+phpunit.xml menunjuk tests/Unit sebagai salah satu testsuite. Git tidak
+melacak folder kosong, jadi tanpa berkas ini folder tersebut hilang di
+kloning yang bersih — dan `php artisan test` langsung berhenti dengan
+"Test directory not found" sebelum satu test pun jalan. Itu tidak pernah
+terlihat di mesin yang foldernya sudah terlanjur ada.
