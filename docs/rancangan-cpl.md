@@ -7,29 +7,57 @@ CPL berdiri sebagai **menu tersendiri**, terpisah dari OVK.
 
 ---
 
-## 1. Tiga temuan dari data yang berjalan sekarang
+## 1. Empat temuan dari data yang berjalan sekarang
 
-Ketiganya ditemukan saat membaca `dashboard_cpl.csv` (8.658 baris) dan skrip
-yang membuatnya. Semuanya memengaruhi rancangan.
+Semuanya ditemukan saat membaca `dashboard_cpl.csv` (8.658 baris) dan skrip
+yang membuatnya. Dari 1.046 sapi terjual, **86 ekor (8,2%) tidak punya data
+reweight** — dan dua temuan pertama sama-sama berakar dari sana.
 
-### 1.1 Angka ADG RWT yang dilihat sekarang lebih rendah dari kenyataan
+### 1.1 Baris TOTAL di laporan Excel salah populasi
+
+Ini yang paling perlu diperhatikan, karena ada di laporan yang dikirim ke
+atasan. Di `4_buat_cpl.py`:
+
+```python
+tot_ind = df_cpl['BRT INDCT'].sum()      # SEMUA 1.046 ekor
+tot_rwt = df_cpl['RWT Wt (Kg)'].sum()    # HANYA 960 ekor yang punya reweight
+val = (tot_rwt - tot_ind) / tot_dof_rwt
+```
+
+Pembilangnya mengurangi berat induksi 1.046 ekor dari berat reweight 960 ekor.
+Dua populasi berbeda dikurangkan, jadi hasilnya tidak berarti apa-apa.
+
+| | ADG RWT |
+|---|---|
+| Yang tercetak sekarang | **1,624** |
+| Yang seharusnya | **2,126** |
+
+Selisihnya 0,5 kg/hari — sekitar **24% understated**.
+
+**Aturannya di modul baru: pembilang dan penyebut harus dari populasi yang
+sama.** Kalau satu ekor tidak punya reweight, dia keluar dari perhitungan ADG
+RWT sepenuhnya — bukan cuma dari penyebutnya.
+
+### 1.2 Dashboard juga lebih rendah, dengan sebab berbeda
 
 `5_export_dashboard_data.py` menulis `else 0` untuk nilai yang tidak bisa
-dihitung. Sapi yang tidak punya data reweight jadi tercatat ADG RWT = **0**,
-bukan kosong. Dashboard memperlakukan 0 sebagai angka sah dan ikut
-merata-ratakannya.
+dihitung. Sapi tanpa reweight jadi tercatat ADG RWT = **0**, bukan kosong, dan
+dashboard memperlakukan 0 sebagai angka sah lalu ikut merata-ratakannya.
 
-| | Nilai |
+| | ADG RWT |
 |---|---|
-| Sapi terjual | 1.046 ekor |
-| Tanpa data reweight | **86 ekor (8,2%)** |
-| ADG RWT yang tampil sekarang | **1,943** |
-| ADG RWT sebenarnya | **2,117** |
+| Yang tampil di dashboard | **1,943** |
+| Yang seharusnya | **2,117** |
 
-Selisihnya 0,17 kg/hari — sekitar **8% understated**. Aturan di modul baru:
-**kosong itu kosong, bukan nol.** Nilai yang tidak bisa dihitung disimpan NULL,
-dan semua rata-rata mengabaikannya. Jumlah ekor yang ikut dihitung selalu
-ditampilkan di sebelah angkanya, supaya ketahuan kalau datanya tipis.
+Aturannya: **kosong itu kosong, bukan nol.** Nilai yang tidak bisa dihitung
+disimpan NULL, semua rata-rata mengabaikannya, dan jumlah ekor yang ikut
+dihitung selalu ditampilkan di sebelah angkanya supaya ketahuan kalau datanya
+tipis.
+
+> Tiga angka untuk hal yang sama — 1,624 di laporan Excel, 1,943 di dashboard,
+> 2,126 yang sebenarnya. Ketiganya beda karena tiap tempat menghitungnya
+> sendiri-sendiri. Itu sebabnya di modul baru semua angka berasal dari satu
+> kelas query yang sama.
 
 ### 1.2 CLAIM menumpang di kolom JENIS
 
@@ -141,6 +169,7 @@ Menjawab pertanyaanmu: **berapa ekor, sakitnya apa, umur berapa hari.**
 | `berat` | diisi kalau salvage |
 | `nilai_klaim` | |
 | `status_klaim` | `diajukan` · `disetujui` · `ditolak` |
+| `keterangan` | catatan bebas |
 
 `induksi_id` sengaja boleh kosong. Kamu bilang **lebih sering mati sebelum
 induksi** — sapi itu tidak punya baris induksi sama sekali, jadi kalau claim
@@ -192,6 +221,36 @@ selalu ditampilkan.
 > menghitungnya dari **Feedlot Date** kalau kolomnya kosong. Di modul baru
 > patokannya satu: **Load Date**, sesuai skrip yang jadi sumber angkanya.
 
+### Rumus agregat — tertimbang
+
+Perlakuannya mengikuti baris TOTAL di laporan Excel, dengan kesalahan populasi
+di bagian 1.1 dibetulkan.
+
+| Agregat | Rumus |
+|---|---|
+| ADG Induction | `(Σ berat_jual − Σ berat_induksi) ÷ Σ DOF Induction` |
+| ADG RWT | `(Σ berat_reweight − Σ berat_induksi) ÷ Σ DOF RWT` |
+| ADG Discharge | `(Σ berat_jual − Σ berat_muat) ÷ Σ DOF Discharge` |
+| ADG JUAL | `(Σ berat_jual − Σ berat_reweight) ÷ Σ DOF JUAL` |
+| SELISIH RWT-JUAL | `ADG JUAL tertimbang − ADG RWT tertimbang` |
+| Gain/Loss (%) | `Σ Gain/Loss ÷ Σ berat_muat × 100` |
+| Gain (%) | `Σ Gain ÷ Σ berat_induksi × 100` |
+
+**Aturan populasi — ini yang membetulkan temuan 1.1:**
+
+Setiap agregat hanya menjumlahkan ekor yang **semua bahannya lengkap**. Untuk
+ADG RWT, sapi tanpa data reweight keluar dari ketiga penjumlahan sekaligus —
+berat reweight, berat induksi, maupun DOF. Bukan cuma dari penyebutnya.
+
+Jadi kalau dalam satu shipment ada 100 ekor dan hanya 80 yang di-reweight, ADG
+RWT-nya dihitung dari 80 ekor itu saja, dan di sebelah angkanya tertulis
+`n = 80` supaya jelas dasarnya berapa ekor.
+
+> Catatan: laporan Excel sekarang tidak konsisten — baris TOTAL memakai
+> tertimbang untuk ADG Induction dan ADG RWT, tapi rata-rata sederhana untuk
+> ADG Discharge, ADG JUAL, dan SELISIH. Di sini keempatnya dibuat tertimbang.
+> Kalau ternyata ADG JUAL memang sengaja rata-rata sederhana, tolong bilang.
+
 ### Status setiap ekor
 
 Diturunkan, bukan diketik — jadi tidak mungkin ada sapi berstatus "terjual"
@@ -224,7 +283,30 @@ lihat rinciannya. Bagus untuk memeriksa satu transaksi.
 Yang diminta bos berbeda — dia mau **membandingkan**. Jadi dashboard baru
 disusun sebagai pembanding, dan laporan rinci tetap ada di halamannya sendiri.
 
-**Penyaring:** rentang tanggal · shipment · jenis · property · customer
+**Tampilan dan cara kerjanya** mengikuti berkas HTML yang dikirim — susunan
+kartu, warna, dan perilaku penyaringnya. **Cara menghitungnya** mengikuti
+Streamlit lama, dengan pembetulan di bagian 1.
+
+### Penyaring saling terhubung
+
+Persis seperti `subFilters()` di HTML: pilihan di satu penyaring dipersempit
+oleh penyaring lain yang sedang aktif, sehingga tidak pernah ada pilihan yang
+hasilnya kosong.
+
+```
+Rentang tanggal  →  mempersempit  →  Shipment
+                                     Jenis
+                                     Property
+                                     Customer
+                                     Invoice
+```
+
+Mengubah rentang tanggal mengosongkan penyaring di bawahnya, sama seperti
+`$('selDate').addEventListener('change', ...)` di HTML.
+
+**Kalau tidak ada tanggal dipilih**, yang tampil adalah **10 invoice terakhir**
+— perilaku bawaan dari Streamlit, supaya halaman tidak pernah kosong saat
+pertama dibuka.
 
 ### Baris 1 — Ringkasan periode
 
@@ -294,6 +376,8 @@ Ditambah satu:
 ### Baris 6 — Populasi aktif
 
 Sapi yang masih di kandang, yang sekarang tidak terlihat sama sekali.
+Dibatasi **8 shipment terakhir**, karena shipment lama isinya tinggal
+sisa-sisa dan cuma bikin tabelnya panjang.
 
 | Shipment | Ekor aktif | DOF berjalan | Bobot induksi | Perkiraan bobot kini |
 |---|---|---|---|---|
@@ -305,31 +389,72 @@ dan diberi label jelas sebagai perkiraan.
 
 ## 6. Laporan CPL
 
-Halaman terpisah, dibuat semirip mungkin dengan yang sekarang — bos dan tim
-sudah hafal bentuknya.
+Halaman terpisah. Fungsinya mengikuti Streamlit lama, karena tim sudah hafal
+alurnya.
 
-- Penyaring: tanggal jual → jenis · shipment · customer · invoice
+### 6.1 CPL Detail — per ekor
+
+- Penyaring sama dan saling terhubung seperti di dashboard
 - **Satu tabel per customer**, plus tabel gabungan kalau lebih dari satu
 - Baris **rata-rata di atas** judul kolom, baris **total di bawah**
-- 24 kolom dengan warna yang sama: peach untuk bobot, kuning untuk exit,
+- Kolom berwarna sama seperti sekarang: peach untuk bobot, kuning untuk exit,
   biru untuk DOF, abu untuk ADG, merah muda untuk selisih
 - SELISIH RWT-JUAL merah kalau negatif, hijau kalau positif
 - Cetak PDF dan unduh CSV/Excel memakai mesin yang sudah ada
 
+### 6.2 Personalisasi kolom
+
+Dibawa apa adanya dari Streamlit, termasuk **semuanya tercentang sejak awal**
+supaya laporan bawaannya ringkas.
+
+| Sembunyikan | Bawaan |
+|---|---|
+| RFID · Load Date · Gain/Loss · Detail Asal | tersembunyi |
+| RWT Date · RWT Wt · DOF RWT · ADG RWT | tersembunyi |
+| DOF JUAL · ADG JUAL · SELISIH RWT-JUAL | tersembunyi |
+
+Pilihannya diingat per pengguna, jadi tidak perlu diatur ulang tiap buka.
+
+### 6.3 Closing CPL — ringkasan
+
+Jalur kedua dari Streamlit: laporan yang **baris detail per sapinya dibuang**,
+tinggal ringkasan per kelompok. Dipakai untuk penutupan, bukan pemeriksaan
+per ekor.
+
+Penyaringnya sama, tapi pilihan sembunyikan kolom tidak berlaku karena memang
+tidak ada baris detailnya.
+
 ---
 
-## 7. Yang perlu kamu koreksi
+## 7. Yang sudah dikunci
 
-1. **ADG RWT sebenarnya 2,117, bukan 1,943.** Kalau angka lama sudah terlanjur
-   dipakai di laporan ke atasan, perlu dijelaskan dulu sebelum berubah sendiri.
-2. **Rata-rata ADG: sederhana atau tertimbang?** Yang sekarang rata-rata
-   sederhana (tiap ekor bobot sama). Untuk membandingkan shipment, tertimbang
-   (total gain ÷ total hari) lebih jujur karena satu ekor luar biasa tidak
-   mengangkat seluruh rombongan. Pakai yang mana?
-3. **Jenis claim** — cukup `mati` / `salvage` / `sakit_bawaan`, atau ada lagi?
-4. **Umur saat claim dihitung dari tanggal tiba** — sudah sesuai dengan yang
-   kamu maksud?
-5. **Corong shipment** butuh jumlah ekor yang benar-benar tiba per shipment.
+| Hal | Keputusan |
+|---|---|
+| Tampilan & perilaku dashboard | Ikut berkas HTML yang dikirim |
+| Cara menghitung | Ikut Streamlit lama, dengan pembetulan di bagian 1 |
+| Rata-rata ADG | **Tertimbang** |
+| ADG RWT | Hanya untuk yang punya reweight; yang tidak punya, kosong |
+| Sebagian reweight dalam satu shipment | Tetap dihitung dari yang punya saja, `n` ditampilkan |
+| Jenis claim | `mati` · `salvage` · `sakit_bawaan`, ditambah kolom keterangan |
+| Umur saat claim | Dihitung dari tanggal tiba |
+| Populasi aktif | Perlu, dibatasi 8 shipment terakhir |
+| Penyaring | Sama dan saling terhubung |
+| Laporan | CPL Detail + Closing, dengan pilihan sembunyikan kolom |
+
+---
+
+## 8. Yang masih perlu kamu jawab
+
+1. **Angka ADG RWT akan berubah cukup jauh.** Di laporan Excel dari 1,624 jadi
+   2,126; di dashboard dari 1,943 jadi 2,117. Kalau angka lama sudah terlanjur
+   dipakai di laporan ke atasan, sebaiknya dijelaskan dulu sebelum berubah
+   sendiri di sistem baru.
+2. **ADG Discharge, ADG JUAL, dan SELISIH** di laporan sekarang memakai
+   rata-rata sederhana, sementara ADG Induction dan ADG RWT tertimbang. Aku
+   samakan jadi tertimbang semua — kecuali kalau tiga itu memang sengaja
+   dibuat rata-rata sederhana.
+3. **Corong shipment** butuh jumlah ekor yang benar-benar tiba per shipment.
    Angka itu ada di berkas pembelian, atau perlu diinput manual?
-6. **Populasi aktif** — perlu tidak? Ini tambahan dari aku, bukan dari
-   dashboard yang kamu kirim.
+4. **Analisa tambahan yang bos minta** — kamu bilang ada. Apa saja? Empat tabel
+   pembanding di bagian 5 itu tebakanku; kalau ada yang spesifik dia minta,
+   lebih baik masuk sekarang daripada ditambal belakangan.
