@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,11 +18,17 @@ class AppServiceProvider extends ServiceProvider
         // APP_LOCALE sudah id — locale Carbon terpisah dari locale aplikasi.
         Carbon::setLocale(config('app.locale', 'id'));
 
-        // SQLite tidak menegakkan foreign key kecuali dinyalakan per koneksi.
-        // Dipakai saat pengembangan lokal dan di test, supaya relasi yang
-        // salah ketahuan di sini — bukan nanti di MySQL server.
-        if (DB::connection()->getDriverName() === 'sqlite') {
-            DB::statement('PRAGMA foreign_keys = ON');
-        }
+        /*
+         * Penegakan foreign key SQLite TIDAK diatur di sini.
+         *
+         * Laravel sudah menyalakannya sendiri tiap koneksi lewat
+         * 'foreign_key_constraints' di config/database.php. Menjalankan
+         * PRAGMA di boot() bukan cuma mubazir — perintahnya memaksa koneksi
+         * database terbuka setiap aplikasi boot, termasuk saat
+         * `composer install` menjalankan package:discover di mesin yang
+         * databasenya belum ada sama sekali. Di situ rilis jadi gagal.
+         *
+         * boot() tidak boleh menyentuh database.
+         */
     }
 }
