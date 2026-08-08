@@ -19,6 +19,10 @@ class PembelianShipment extends Model
     protected $fillable = [
         'shipment_id', 'jenis', 'tanggal_muat', 'berat_muat',
         'tanggal_tiba', 'berat_tiba', 'jumlah_ekor', 'import_batch_id',
+        'importir', 'harga_usd', 'daerah',
+        'salvage_jumlah', 'salvage_persen',
+        'mati_jumlah', 'mati_persen',
+        'bunting_jumlah', 'bunting_persen',
     ];
 
     protected function casts(): array
@@ -28,6 +32,10 @@ class PembelianShipment extends Model
             'tanggal_tiba' => 'date',
             'berat_muat' => 'decimal:2',
             'berat_tiba' => 'decimal:2',
+            'harga_usd' => 'decimal:2',
+            'salvage_persen' => 'decimal:3',
+            'mati_persen' => 'decimal:3',
+            'bunting_persen' => 'decimal:3',
         ];
     }
 

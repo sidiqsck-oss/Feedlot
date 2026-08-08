@@ -30,6 +30,8 @@ class ImporController extends Controller
             'shipment' => Shipment::aktif()->orderByDesc('nomor')->get(),
             'jenis' => collect(TemplatImpor::semuaJenis())
                 ->mapWithKeys(fn ($j) => [$j => TemplatImpor::definisi($j)['nama']]),
+            'perShipment' => collect(TemplatImpor::semuaJenis())
+                ->mapWithKeys(fn ($j) => [$j => TemplatImpor::perShipment($j)]),
         ]);
     }
 
@@ -51,7 +53,13 @@ class ImporController extends Controller
     {
         $data = $request->validate([
             'jenis' => ['required', Rule::in(TemplatImpor::semuaJenis())],
-            'shipment_id' => ['required', 'exists:shipments,id'],
+            // Hanya induksi dan reweight yang berkasnya milik satu rombongan.
+            // Property, pembelian, dan penjualan mencakup banyak shipment
+            // sekaligus dan membawa kolom Ship-nya sendiri.
+            'shipment_id' => [
+                'nullable', 'exists:shipments,id',
+                Rule::requiredIf(fn () => TemplatImpor::perShipment((string) $request->input('jenis'))),
+            ],
             'berkas' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:10240'],
         ], [
             'berkas.mimes' => 'Berkas harus berformat Excel (.xlsx / .xls) atau CSV.',
@@ -63,7 +71,9 @@ class ImporController extends Controller
             $batch = $this->impor->siapkan(
                 $request->file('berkas'),
                 $data['jenis'],
-                Shipment::findOrFail($data['shipment_id']),
+                // Select-nya dinonaktifkan untuk jenis lintas shipment, jadi
+                // kuncinya memang tidak ikut terkirim.
+                ($data['shipment_id'] ?? null) ? Shipment::find($data['shipment_id']) : null,
                 $request->user(),
             );
         } catch (RuntimeException $e) {
@@ -126,8 +136,9 @@ class ImporController extends Controller
         $hasil = $impor->fresh();
 
         return back()->with('sukses', sprintf(
-            '%d baris masuk, %d dilewati.',
+            '%d baris masuk%s, %d dilewati.',
             $hasil->jumlah_baru,
+            $hasil->jumlah_diperbarui > 0 ? ", {$hasil->jumlah_diperbarui} diperbarui" : '',
             $hasil->jumlah_dilewati,
         ));
     }

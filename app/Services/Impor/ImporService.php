@@ -5,6 +5,9 @@ namespace App\Services\Impor;
 use App\Models\ImportBaris;
 use App\Models\ImportBatch;
 use App\Models\Induksi;
+use App\Models\PembelianShipment;
+use App\Models\Penjualan;
+use App\Models\Property;
 use App\Models\Reweight;
 use App\Models\Shipment;
 use App\Models\User;
@@ -41,9 +44,16 @@ class ImporService
     public function siapkan(
         UploadedFile $berkas,
         string $jenis,
-        Shipment $shipment,
+        ?Shipment $shipment,
         User $user,
     ): ImportBatch {
+        // Property, pembelian, dan penjualan mencakup banyak shipment
+        // sekaligus; hanya induksi dan reweight yang berkasnya milik satu
+        // rombongan tertentu.
+        if (TemplatImpor::perShipment($jenis) && ! $shipment) {
+            throw new RuntimeException('Jenis berkas ini harus dipasangkan ke satu shipment.');
+        }
+
         $definisi = TemplatImpor::definisi($jenis);
         $hash = hash_file('sha256', $berkas->getRealPath());
 
@@ -85,7 +95,7 @@ class ImporService
             'jenis' => $jenis,
             'nama_berkas' => $berkas->getClientOriginalName(),
             'hash_berkas' => $hash,
-            'shipment_id' => $shipment->id,
+            'shipment_id' => $shipment?->id,
             'status' => 'dibaca',
             'diunggah_oleh' => $user->id,
         ]);
@@ -106,7 +116,7 @@ class ImporService
         string $jalur,
         string $jenis,
         array $definisi,
-        Shipment $shipment,
+        ?Shipment $shipment,
     ): void {
         // Kunci yang sudah terlihat DI DALAM berkas ini. Dobel di dalam satu
         // berkas dan dobel terhadap database adalah dua masalah berbeda, dan
@@ -122,9 +132,13 @@ class ImporService
 
             $data = TemplatImpor::petakan($jenis, $baris['data']);
 
-            $masalah = $jenis === TemplatImpor::INDUKSI
-                ? $this->periksaInduksi($data, $shipment, $baris['nomor'], $rfidTerlihat, $earTagTerlihat)
-                : $this->periksaReweight($data, $shipment);
+            $masalah = match ($jenis) {
+                TemplatImpor::INDUKSI => $this->periksaInduksi($data, $shipment, $baris['nomor'], $rfidTerlihat, $earTagTerlihat),
+                TemplatImpor::REWEIGHT => $this->periksaReweight($data, $shipment),
+                TemplatImpor::PROPERTY => $this->periksaProperty($data),
+                TemplatImpor::PEMBELIAN => $this->periksaPembelian($data),
+                TemplatImpor::PENJUALAN => $this->periksaPenjualan($data),
+            };
 
             $status = $masalah === [] ? 'valid' : 'bermasalah';
             $jumlah[$status === 'valid' ? 'valid' : 'bermasalah']++;
@@ -256,6 +270,88 @@ class ImporService
         return $masalah;
     }
 
+    /** @return array<int, string> */
+    private function periksaProperty(array $data): array
+    {
+        $masalah = [];
+
+        if (trim((string) ($data['kode'] ?? '')) === '') {
+            $masalah[] = 'Kode PIC kosong';
+        }
+
+        if (trim((string) ($data['nama'] ?? '')) === '') {
+            $masalah[] = 'Nama property kosong';
+        }
+
+        return $masalah;
+    }
+
+    /** @return array<int, string> */
+    private function periksaPembelian(array $data): array
+    {
+        $masalah = [];
+
+        $kode = Shipment::normalisasiKode((string) ($data['shipment'] ?? ''));
+
+        if ($kode === '') {
+            $masalah[] = 'Kolom Ship kosong';
+        }
+
+        if (trim((string) ($data['jenis'] ?? '')) === '') {
+            $masalah[] = 'Kolom Jenis kosong';
+        }
+
+        foreach (['berat_muat', 'berat_tiba', 'total_jenis', 'harga_usd'] as $kolom) {
+            $nilai = $data[$kolom] ?? null;
+
+            if ($nilai !== null && $nilai !== '' && ! is_numeric($nilai)) {
+                $masalah[] = "Kolom {$kolom} bukan angka: {$nilai}";
+            }
+        }
+
+        return $masalah;
+    }
+
+    /** @return array<int, string> */
+    private function periksaPenjualan(array $data): array
+    {
+        $masalah = [];
+
+        $rfid = trim((string) ($data['rfid'] ?? ''));
+        $kode = Shipment::normalisasiKode((string) ($data['shipment'] ?? ''));
+
+        if ($rfid === '') {
+            $masalah[] = 'Nomor RFID kosong';
+        } elseif ($kode === '') {
+            $masalah[] = 'Kolom Ship kosong, jadi sapinya tidak bisa dipastikan';
+        } elseif (! $this->cariInduksi($kode, $rfid)) {
+            // Penjualan untuk sapi yang belum pernah diinduksi tidak masuk
+            // akal. Biasanya berarti berkas induksi shipment itu belum diunggah.
+            $masalah[] = "RFID tidak ada di data induksi {$kode}. Unggah berkas induksinya dulu.";
+        }
+
+        if (! $this->tanggalSah($data['tanggal'] ?? null)) {
+            $masalah[] = 'Tanggal penjualan kosong atau tidak terbaca';
+        }
+
+        if (($data['berat'] ?? null) !== null && $data['berat'] !== '' && ! is_numeric($data['berat'])) {
+            $masalah[] = 'Jumlah Berat bukan angka: '.$data['berat'];
+        }
+
+        return $masalah;
+    }
+
+    private function cariInduksi(string $kodeShipment, string $rfid): ?Induksi
+    {
+        $shipment = Shipment::where('kode', $kodeShipment)->first();
+
+        if (! $shipment) {
+            return null;
+        }
+
+        return Induksi::where('shipment_id', $shipment->id)->where('rfid', $rfid)->first();
+    }
+
     /**
      * Masukkan baris yang valid ke tabel tujuan.
      *
@@ -271,15 +367,19 @@ class ImporService
 
         $batch->update(['status' => 'diproses']);
 
-        $jumlah = ['baru' => 0, 'dilewati' => 0, 'gagal' => 0];
+        $jumlah = ['baru' => 0, 'diperbarui' => 0, 'dilewati' => 0, 'gagal' => 0];
 
         try {
             $batch->baris()->valid()->chunkById(200, function ($potongan) use ($batch, &$jumlah) {
                 foreach ($potongan as $baris) {
                     DB::transaction(function () use ($batch, $baris, &$jumlah) {
-                        $hasil = $batch->jenis === TemplatImpor::INDUKSI
-                            ? $this->simpanInduksi($batch, $baris)
-                            : $this->simpanReweight($batch, $baris);
+                        $hasil = match ($batch->jenis) {
+                            TemplatImpor::INDUKSI => $this->simpanInduksi($batch, $baris),
+                            TemplatImpor::REWEIGHT => $this->simpanReweight($batch, $baris),
+                            TemplatImpor::PROPERTY => $this->simpanProperty($baris),
+                            TemplatImpor::PEMBELIAN => $this->simpanPembelian($batch, $baris),
+                            TemplatImpor::PENJUALAN => $this->simpanPenjualan($batch, $baris),
+                        };
 
                         $jumlah[$hasil]++;
                     });
@@ -294,6 +394,7 @@ class ImporService
         $batch->update([
             'status' => 'selesai',
             'jumlah_baru' => $jumlah['baru'],
+            'jumlah_diperbarui' => $jumlah['diperbarui'],
             'jumlah_dilewati' => $jumlah['dilewati'] + $batch->jumlah_bermasalah,
             'diproses_pada' => now(),
         ]);
@@ -378,6 +479,115 @@ class ImporService
         return 'baru';
     }
 
+    /**
+     * Property dan pembelian bersifat master: mengunggah ulang berkas yang
+     * lebih baru MEMPERBARUI baris yang sudah ada, tidak dilewati. Berbeda
+     * dengan induksi dan penjualan yang tiap barisnya satu peristiwa.
+     */
+    private function simpanProperty(ImportBaris $baris): string
+    {
+        $d = $baris->data_mentah;
+
+        $property = Property::updateOrCreate(
+            ['kode' => trim((string) $d['kode'])],
+            [
+                'nama' => trim((string) $d['nama']),
+                'region' => $this->keTeks($d['region'] ?? null),
+                'lga' => $this->keTeks($d['lga'] ?? null),
+                'aktif' => true,
+            ],
+        );
+
+        $baris->update(['status' => 'diproses']);
+
+        return $property->wasRecentlyCreated ? 'baru' : 'diperbarui';
+    }
+
+    private function simpanPembelian(ImportBatch $batch, ImportBaris $baris): string
+    {
+        $d = $baris->data_mentah;
+
+        // Shipment dibuat otomatis kalau belum ada — berkas pembelian sering
+        // jadi yang pertama masuk untuk rombongan baru.
+        $kode = Shipment::normalisasiKode((string) $d['shipment']);
+
+        $shipment = Shipment::firstOrCreate(
+            ['kode' => $kode],
+            [
+                'nomor' => preg_match('/^SCK(\d+)$/', $kode, $c) ? (int) $c[1] : null,
+                'aktif' => true,
+            ],
+        );
+
+        $pembelian = PembelianShipment::updateOrCreate(
+            ['shipment_id' => $shipment->id, 'jenis' => trim((string) $d['jenis'])],
+            [
+                'tanggal_muat' => $this->keTanggal($d['tanggal_muat'] ?? null),
+                'berat_muat' => $this->keAngka($d['berat_muat'] ?? null),
+                'tanggal_tiba' => $this->keTanggal($d['tanggal_tiba'] ?? null),
+                'berat_tiba' => $this->keAngka($d['berat_tiba'] ?? null),
+                'jumlah_ekor' => $this->keBulat($d['total_jenis'] ?? null),
+                'importir' => $this->keTeks($d['importir'] ?? null),
+                'harga_usd' => $this->keAngka($d['harga_usd'] ?? null),
+                'daerah' => $this->keTeks($d['daerah'] ?? null),
+                'salvage_jumlah' => $this->keBulat($d['salvage_jumlah'] ?? null),
+                'salvage_persen' => $this->keAngka($d['salvage_persen'] ?? null),
+                'mati_jumlah' => $this->keBulat($d['mati_jumlah'] ?? null),
+                'mati_persen' => $this->keAngka($d['mati_persen'] ?? null),
+                'bunting_jumlah' => $this->keBulat($d['bunting_jumlah'] ?? null),
+                'bunting_persen' => $this->keAngka($d['bunting_persen'] ?? null),
+                'import_batch_id' => $batch->id,
+            ],
+        );
+
+        $baris->update(['status' => 'diproses']);
+
+        return $pembelian->wasRecentlyCreated ? 'baru' : 'diperbarui';
+    }
+
+    private function simpanPenjualan(ImportBatch $batch, ImportBaris $baris): string
+    {
+        $d = $baris->data_mentah;
+
+        $induksi = $this->cariInduksi(
+            Shipment::normalisasiKode((string) $d['shipment']),
+            trim((string) $d['rfid']),
+        );
+
+        if (! $induksi) {
+            $baris->update(['status' => 'dilewati', 'catatan' => 'Data induksinya tidak ditemukan saat diproses']);
+
+            return 'dilewati';
+        }
+
+        $tanggal = $this->keTanggal($d['tanggal'] ?? null);
+
+        // Satu ekor dijual sekali di satu tanggal. Baris yang sama diunggah
+        // ulang memperbarui, bukan menambah baris kedua.
+        $penjualan = Penjualan::updateOrCreate(
+            ['induksi_id' => $induksi->id, 'tanggal' => $tanggal],
+            [
+                'berat' => $this->keAngka($d['berat'] ?? null),
+                'satuan' => $this->keTeks($d['satuan'] ?? null),
+                'customer' => $this->keTeks($d['customer'] ?? null),
+                'kode_customer' => $this->keTeks($d['kode_customer'] ?? null),
+                'no_invoice' => $this->keTeks($d['no_invoice'] ?? null),
+                'no_surat_jalan' => $this->keTeks($d['no_surat_jalan'] ?? null),
+                'nama_barang' => $this->keTeks($d['nama_barang'] ?? null),
+                'harga_per_kg' => $this->keAngka($d['harga_per_kg'] ?? null),
+                'realisasi' => $this->keAngka($d['realisasi'] ?? null),
+                'total' => $this->keAngka($d['total'] ?? null),
+                'potongan' => $this->keAngka($d['potongan'] ?? null),
+                'status_sapi' => $this->keTeks($d['status_sapi'] ?? null),
+                'import_batch_id' => $batch->id,
+            ],
+        );
+
+        $baris->update(['status' => 'diproses']);
+
+        return $penjualan->wasRecentlyCreated ? 'baru' : 'diperbarui';
+    }
+
     public function batalkan(ImportBatch $batch): ImportBatch
     {
         if ($batch->status === 'selesai') {
@@ -410,6 +620,11 @@ class ImporService
     private function keAngka(mixed $nilai): ?float
     {
         return ($nilai === null || $nilai === '' || ! is_numeric($nilai)) ? null : (float) $nilai;
+    }
+
+    private function keBulat(mixed $nilai): ?int
+    {
+        return ($nilai === null || $nilai === '' || ! is_numeric($nilai)) ? null : (int) round((float) $nilai);
     }
 
     private function keTeks(mixed $nilai): ?string

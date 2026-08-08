@@ -15,7 +15,7 @@ class Property extends Model
 {
     protected $table = 'properties';
 
-    protected $fillable = ['kode', 'nama', 'daerah', 'aktif'];
+    protected $fillable = ['kode', 'nama', 'region', 'lga', 'daerah', 'aktif'];
 
     protected function casts(): array
     {
