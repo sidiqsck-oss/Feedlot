@@ -1,0 +1,50 @@
+name: Test
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Versi PHP disamakan dengan yang dipakai saat rilis, supaya kalau ada
+      # yang tidak cocok, ketahuannya di sini — bukan di server.
+      #
+      # gd disebut eksplisit karena phpspreadsheet mensyaratkannya: kalau
+      # cuma mengandalkan bawaan runner, composer install bisa tiba-tiba
+      # gagal saat bawaannya berubah.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_sqlite, pdo_mysql, zip, intl, gd
+          coverage: none
+
+      # Sengaja dijalankan sebelum .env dibuat, tanpa database sama sekali.
+      # package:discover ikut jalan di sini, jadi langkah ini juga menjaga
+      # supaya boot aplikasi tidak pernah menyentuh database — persis kondisi
+      # saat rilis ke hosting.
+      - name: Pasang dependensi
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Siapkan lingkungan
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      # Semua folder yang ditunjuk phpunit.xml harus benar-benar ikut ter-commit.
+      # Git tidak melacak folder kosong, jadi folder yang kebetulan sudah ada di
+      # laptop bisa hilang di kloning bersih — dan `php artisan test` berhenti
+      # sebelum satu test pun jalan, tanpa pernah terlihat saat pengembangan.
+      - name: Pastikan folder testsuite ada
+        run: |
+          for d in $(grep -oP '(?<=<directory>)[^<]+' phpunit.xml); do
+            [ -d "$d" ] || { echo "Folder testsuite '$d' tidak ada di repo."; exit 1; }
+          done
+
+      - name: Jalankan test
+        run: php artisan test

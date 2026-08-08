@@ -1,0 +1,119 @@
+name: Rilis ke Hosting
+
+# Hosting tujuan cuma punya cPanel dan File Manager — tidak ada SSH, tidak ada
+# composer, tidak ada Node. Jadi semua yang butuh perkakas dikerjakan di sini,
+# lalu hasil jadinya dikirim lewat FTP.
+#
+# Rahasia yang perlu diisi di Settings > Secrets and variables > Actions:
+#   FTP_SERVER    - host FTP dari cPanel, mis. ftp.ptscki.co.id
+#   FTP_USERNAME  - user FTP
+#   FTP_PASSWORD  - password FTP
+#   FTP_PATH      - folder tujuan, mis. /feedlot/   (JANGAN public_html)
+#   APP_URL       - alamat aplikasi, mis. https://app.ptscki.co.id
+#   DEPLOY_TOKEN  - sama persis dengan DEPLOY_TOKEN di .env server
+
+on:
+  workflow_dispatch:
+    inputs:
+      jalankan_migrasi:
+        description: 'Jalankan migrasi database setelah unggah'
+        type: boolean
+        default: true
+  push:
+    branches:
+      - main
+
+concurrency:
+  # Dua rilis bersamaan lewat FTP bisa saling menimpa di tengah unggahan.
+  group: rilis-hosting
+  cancel-in-progress: false
+
+jobs:
+  rilis:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Ambil kode
+        uses: actions/checkout@v4
+
+      # Versi PHP di sini harus SAMA dengan yang dipilih di cPanel.
+      #
+      # Yang menentukan paket mana yang terpasang sebenarnya bukan baris ini,
+      # melainkan config.platform.php di composer.json — itu yang bikin
+      # composer.lock selalu diselesaikan untuk PHP 8.2, tidak peduli versi
+      # PHP di mesin yang menjalankannya. Tanpa itu, lock hasil laptop
+      # ber-PHP 8.4 bisa mensyaratkan PHP 8.4 dan langkah composer install di
+      # bawah gagal. Kalau versi cPanel dinaikkan, ubah keduanya bersamaan.
+      - name: Siapkan PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, bcmath, pdo_mysql, zip, gd, intl
+          coverage: none
+
+      - name: Pasang dependensi PHP
+        run: composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+
+      - name: Siapkan Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Bangun aset
+        run: |
+          npm ci
+          npm run build
+
+      - name: Siapkan folder yang harus ada di server
+        run: |
+          # Folder ini di-gitignore isinya, tapi strukturnya wajib ada —
+          # kalau tidak, Laravel gagal menulis cache dan log.
+          mkdir -p bootstrap/cache
+          mkdir -p storage/framework/{cache/data,sessions,views}
+          mkdir -p storage/logs
+          mkdir -p storage/app/private
+          mkdir -p public/storage
+          find storage bootstrap/cache public/storage -type d -exec touch {}/.gitkeep \;
+
+      - name: Kirim ke hosting lewat FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: ${{ secrets.FTP_PATH }}
+          protocol: ftps
+          # Yang TIDAK boleh ikut terkirim:
+          #   .env      - server punya sendiri, berisi kredensial database
+          #   log & cache - milik server, menimpanya bikin sesi user putus
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/tests/**
+            .env
+            .env.example
+            phpunit.xml
+            storage/logs/**
+            storage/framework/cache/data/**
+            storage/framework/sessions/**
+            storage/framework/views/**
+
+      - name: Jalankan migrasi
+        if: github.event_name == 'push' || inputs.jalankan_migrasi
+        run: |
+          curl --fail-with-body -sS -X POST \
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
+            "${{ secrets.APP_URL }}/__deploy/migrate"
+
+      - name: Bangun ulang cache konfigurasi
+        run: |
+          # Wajib setiap rilis. Tanpa ini, config lama masih dipakai dan
+          # perubahan .env tidak terbaca.
+          curl --fail-with-body -sS -X POST \
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
+            "${{ secrets.APP_URL }}/__deploy/optimize"
+
+      - name: Periksa aplikasi hidup
+        run: curl --fail -sS "${{ secrets.APP_URL }}/up" > /dev/null

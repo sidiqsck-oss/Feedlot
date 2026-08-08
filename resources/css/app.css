@@ -1,0 +1,251 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+
+/*
+ * Palet diambil dari konteksnya: dokumen gudang dan kartu stok. Netralnya
+ * dibiaskan sedikit ke hijau supaya tidak terbaca abu-abu bawaan, dan warna
+ * bertanda (masuk/keluar) dipisahkan dari warna aksen supaya angka positif dan
+ * negatif tetap terbaca sebagai status, bukan sebagai hiasan.
+ */
+@theme {
+  --color-ground: #f5f7f4;
+  --color-surface: #ffffff;
+  --color-ink: #15201b;
+  --color-ink-soft: #43554c;
+  --color-ink-mute: #6c7f75;
+  --color-rule: #d9e1db;
+  --color-accent: #0e6b5a;
+  --color-accent-soft: #dcede7;
+  --color-masuk: #2c7a33;
+  --color-masuk-soft: #e0f0e1;
+  --color-keluar: #a63528;
+  --color-keluar-soft: #f7e3e0;
+  --color-tanda: #8a5a08;
+  --color-tanda-soft: #f8ecd6;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-ground);
+    color: var(--color-ink);
+  }
+
+  /* Angka dalam kolom harus sejajar supaya besar-kecilnya terbaca sekilas. */
+  .angka {
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+}
+
+@layer components {
+  .kartu {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    border-radius: 0.5rem;
+  }
+
+  .input {
+    display: block;
+    width: 100%;
+    border-radius: 0.375rem;
+    border: 1px solid var(--color-rule);
+    background-color: var(--color-surface);
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-ink);
+  }
+
+  .input:focus {
+    outline: 2px solid var(--color-accent);
+    outline-offset: -1px;
+    border-color: var(--color-accent);
+  }
+
+  .input:disabled {
+    background-color: var(--color-ground);
+    color: var(--color-ink-mute);
+  }
+
+  .label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    margin-bottom: 0.35rem;
+  }
+
+  .tombol {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.9rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .tombol-utama {
+    background-color: var(--color-accent);
+    color: #ffffff;
+  }
+
+  .tombol-utama:hover {
+    filter: brightness(1.1);
+  }
+
+  .tombol-biasa {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-rule);
+    color: var(--color-ink);
+  }
+
+  .tombol-biasa:hover {
+    background-color: var(--color-ground);
+  }
+
+  .tombol-bahaya {
+    background-color: var(--color-keluar-soft);
+    border: 1px solid var(--color-keluar);
+    color: var(--color-keluar);
+  }
+
+  .tabel {
+    width: 100%;
+    font-size: 0.875rem;
+    border-collapse: collapse;
+  }
+
+  .tabel th {
+    text-align: left;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-mute);
+    background-color: var(--color-ground);
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-rule);
+    white-space: nowrap;
+  }
+
+  .tabel td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--color-rule);
+    color: var(--color-ink-soft);
+  }
+
+  .tabel tbody tr:hover td {
+    background-color: var(--color-ground);
+  }
+
+  .lencana {
+    display: inline-block;
+    border-radius: 0.25rem;
+    padding: 0.12rem 0.45rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+/*
+ * Warna tabel CPL.
+ *
+ * Diambil dari laporan yang dipakai sekarang supaya tim tidak perlu belajar
+ * ulang membaca kolomnya: peach untuk bobot, kuning untuk exit, biru untuk
+ * DOF, abu untuk ADG, dan merah muda untuk selisih.
+ */
+@theme {
+  --color-cpl-kepala: #93a9c9;
+  --color-cpl-ringkas: #fbdcc0;
+  --color-cpl-kuning: #ffef8a;
+  --color-cpl-jual: #fdf3c8;
+  --color-cpl-biru: #ccd9ea;
+  --color-cpl-peach: #fce2c8;
+  --color-cpl-abu: #eef0f3;
+  --color-cpl-selisih: #fadddd;
+}
+
+@layer components {
+  .tabel-cpl {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .tabel-cpl th,
+  .tabel-cpl td {
+    border: 1px solid #e3e8f0;
+    padding: 0.3rem 0.45rem;
+    text-align: right;
+  }
+
+  .tabel-cpl thead th {
+    background-color: var(--color-cpl-kepala);
+    color: #0f1728;
+    font-weight: 700;
+    font-size: 0.62rem;
+    line-height: 1.2;
+    text-align: center;
+    vertical-align: middle;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: pre-line;
+  }
+
+  .tabel-cpl thead th.kuning { background-color: var(--color-cpl-kuning); }
+
+  /* Baris rata-rata, diletakkan DI ATAS judul kolom seperti laporan sekarang. */
+  .tabel-cpl tr.ringkas td {
+    background-color: var(--color-cpl-ringkas);
+    border-color: #f2d3b2;
+    color: #3d2b18;
+    font-weight: 700;
+  }
+
+  .tabel-cpl tr.ringkas td.kosong {
+    background-color: #fff;
+    border-color: #e3e8f0;
+  }
+
+  .tabel-cpl tr.total td {
+    background-color: #f2f4f8;
+    font-weight: 700;
+    border-top: 2px solid #c8d0de;
+  }
+
+  .tabel-cpl td.kiri, .tabel-cpl th.kiri { text-align: left; }
+  .tabel-cpl td.tengah { text-align: center; }
+  .tabel-cpl td.kuning { background-color: var(--color-cpl-kuning); font-weight: 700; }
+  .tabel-cpl td.biru { background-color: var(--color-cpl-biru); }
+  .tabel-cpl td.peach { background-color: var(--color-cpl-peach); }
+  .tabel-cpl td.abu { background-color: var(--color-cpl-abu); }
+  .tabel-cpl td.jual { background-color: var(--color-cpl-jual); }
+  .tabel-cpl td.selisih { background-color: var(--color-cpl-selisih); font-weight: 600; }
+  .tabel-cpl td.selisih.turun { color: #b3261e; }
+  .tabel-cpl td.selisih.naik { color: #1a7f4b; }
+
+  .tabel-cpl tbody tr:nth-child(even) td.polos { background-color: #fbfcfe; }
+  .tabel-cpl tbody tr:hover td { filter: brightness(0.97); }
+
+  /* Kop laporan, gaya gelap seperti di berkas HTML. */
+  .kop-cpl {
+    background-color: #141d31;
+    color: #fff;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.1rem;
+  }
+
+  .kop-cpl h3 { font-size: 0.95rem; font-weight: 800; letter-spacing: 0.02em; }
+  .kop-cpl p { color: #93a9c9; font-size: 0.7rem; margin-top: 0.15rem; }
+}

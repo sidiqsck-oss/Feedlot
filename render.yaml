@@ -1,0 +1,85 @@
+# Blueprint Render.
+#
+# Render membaca berkas ini saat repo dihubungkan, jadi seluruh layanan
+# terbentuk sekali jalan tanpa mengisi form satu per satu.
+#
+# Yang TIDAK ada di sini dan harus diisi manual di dasbor Render (karena
+# rahasia): APP_KEY dan kredensial database. Lihat docs/deploy-render.md.
+
+services:
+  - type: web
+    name: feedlot
+    runtime: docker
+    plan: free
+    region: singapore
+    # Database ada di luar Render, jadi region ini harus sama dengan region
+    # database — tiap query bolak-balik lewat jaringan.
+
+    branch: main
+    dockerfilePath: ./Dockerfile
+
+    healthCheckPath: /masuk
+
+    envVars:
+      - key: APP_NAME
+        value: Feedlot SCK
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: false
+      - key: APP_LOCALE
+        value: id
+      - key: APP_TIMEZONE
+        value: Asia/Jakarta
+
+      # Diisi Render sendiri dengan alamat layanan ini.
+      - key: APP_URL
+        fromService:
+          type: web
+          name: feedlot
+          property: hostport
+
+      # ── Rahasia: isi manual di dasbor Render ──────────────────────
+      # APP_KEY wajib TETAP. Kunci yang berubah tiap deploy bikin semua
+      # sesi pengguna hilang.
+      - key: APP_KEY
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        sync: false
+      - key: DB_DATABASE
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+
+      - key: DB_CONNECTION
+        value: mysql
+
+      # Isi berkas ca.pem, ditempel apa adanya. PDO sendiri menerima PATH,
+      # bukan isi sertifikat — docker/masuk.sh yang menuliskannya ke berkas
+      # lalu mengarahkan MYSQL_ATTR_SSL_CA ke situ. Kosongkan kalau penyedia
+      # databasenya tidak mewajibkan TLS.
+      - key: DB_SSL_CA_CERT
+        sync: false
+
+      # Antrean dan sesi ditaruh di database, bukan berkas: disk Render
+      # bersifat sementara, jadi apa pun yang disimpan sebagai berkas hilang
+      # tiap kali layanan mulai ulang.
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+
+      - key: LOG_CHANNEL
+        value: stderr
+
+      # Route rilis cPanel dimatikan di sini. Render deploy lewat git push,
+      # jadi jalur itu tidak dipakai — dan route yang tidak dipakai tapi
+      # hidup cuma menambah permukaan serangan.
+      - key: DEPLOY_TOKEN
+        value: ""
