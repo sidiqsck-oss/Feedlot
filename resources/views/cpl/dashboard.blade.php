@@ -174,7 +174,11 @@
 {{-- ── Claim ── --}}
 <div class="mt-4 grid gap-4 lg:grid-cols-3">
     <div class="kartu p-4">
-        <h2 class="text-sm font-bold text-ink">Claim</h2>
+        <div class="flex items-baseline justify-between">
+            <h2 class="text-sm font-bold text-ink">Claim</h2>
+            <a href="{{ route('cpl.claim.index', array_filter(['shipment' => $saring['shipment'] ?? null])) }}"
+               class="text-xs font-semibold text-accent hover:underline">Rincian &amp; catat</a>
+        </div>
         <dl class="mt-3 space-y-2 text-sm">
             @foreach ([
                 'Mati sebelum induksi' => $claim['mati_sebelum'],

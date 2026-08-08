@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\BarangController;
+use App\Http\Controllers\Cpl\ClaimController;
 use App\Http\Controllers\Cpl\DashboardCplController;
 use App\Http\Controllers\Cpl\LaporanCplController;
 use App\Http\Controllers\DashboardController;
@@ -71,6 +72,13 @@ Route::middleware('auth')->group(function () {
         Route::get('/laporan', [LaporanCplController::class, 'detail'])->name('laporan');
         Route::get('/laporan/unduh', [LaporanCplController::class, 'unduh'])->name('laporan.unduh');
         Route::get('/closing', [LaporanCplController::class, 'closing'])->name('closing');
+
+        // Claim ke importir. Satu-satunya data CPL yang diketik, bukan
+        // diunggah — kejadiannya satu-satu dan tidak pernah datang dalam
+        // bentuk berkas.
+        Route::get('/claim/cari', [ClaimController::class, 'cari'])->name('claim.cari');
+        Route::get('/claim/unduh', [ClaimController::class, 'unduh'])->name('claim.unduh');
+        Route::resource('claim', ClaimController::class)->except('show');
     });
 
     // ── Impor berkas ──────────────────────────────────────────────

@@ -44,6 +44,7 @@
                 <x-nav-tautan :href="route('cpl.dashboard')" :aktif="request()->routeIs('cpl.dashboard')">Dashboard CPL</x-nav-tautan>
                 <x-nav-tautan :href="route('cpl.laporan')" :aktif="request()->routeIs('cpl.laporan')">Laporan CPL</x-nav-tautan>
                 <x-nav-tautan :href="route('cpl.closing')" :aktif="request()->routeIs('cpl.closing')">Closing CPL</x-nav-tautan>
+                <x-nav-tautan :href="route('cpl.claim.index')" :aktif="request()->routeIs('cpl.claim.*')">Claim Importir</x-nav-tautan>
                 <x-nav-tautan :href="route('impor.index')" :aktif="request()->routeIs('impor.*')">Impor Data</x-nav-tautan>
             </x-nav-grup>
 
